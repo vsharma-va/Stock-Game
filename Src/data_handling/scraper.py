@@ -87,3 +87,6 @@ class ContUpdatedPrice:
 
         price = driver.find_element_by_xpath("//strong[@id='idcrval']")
         return float(price.text)
+
+    def quitDriver(self):
+        driver.quit()
