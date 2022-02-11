@@ -1,16 +1,12 @@
 import time
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
 import Src.data_handling.scraper as scraper
 import Src.gui.main as main
 from pathlib import Path
 import csv
 from datetime import datetime
-from PyQt5.QtChart import QChart, QChartView, QLineSeries
-from PyQt5.QtGui import QPainter
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import QPointF
+from threading import Event
 
 
 class WorkerSignals(QtCore.QObject):
@@ -33,6 +29,9 @@ class WorkerSignals(QtCore.QObject):
     error = QtCore.pyqtSignal(tuple)
     progress = QtCore.pyqtSignal(float)
     file_path = QtCore.pyqtSignal(list)
+
+
+e = Event()
 
 
 class GetLiveStockPriceIndian(QtCore.QRunnable):
@@ -71,7 +70,7 @@ class GetLiveStockPriceIndian(QtCore.QRunnable):
                         writer.writerow([f"{now.strftime('%H:%M:%S')}", f'{price}'])
                     file_write.close()
                 self.signals.file_path.emit([str(filePath), fileName])
-                time.sleep(120)
+                e.wait(timeout=120)
             else:
                 self.signals.finished.emit()
                 end = True
