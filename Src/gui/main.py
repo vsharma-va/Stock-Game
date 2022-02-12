@@ -6,10 +6,12 @@ from PyQt5 import uic
 from PyQt5.QtCore import Qt
 import Src.data_handling.scraper as scraper
 import Src.threads.threadClasses as threadClasses
+import Src.data_handling.data as data
 from matplotlib.backends import qt_compat
 
 use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
 from matplotlib.figure import Figure
+from matplotlib import pyplot as plt
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar)
@@ -26,9 +28,12 @@ class DlgMain(QMainWindow):
     def __init__(self):
         super(DlgMain, self).__init__()
         uic.loadUi('../../UI/Main_Window.ui', self)
+        self.dataClass = data.Data()
         self.FirstTab()
+        self.SecondTab()
+        self.firstTimeSetupFirstTab()
         self.createMainFrameGraph()
-        self.setUserCurrentBalance('1000')
+        self.displayPastPurchases()
 
     def FirstTab(self):
         self.browse = scraper.ContUpdatedPrice()
@@ -72,6 +77,13 @@ class DlgMain(QMainWindow):
 
         self.fadeWidgetOut(self.btnBuy)
         self.btnBuy.setEnabled(False)
+
+    def firstTimeSetupFirstTab(self):
+        balance = self.dataClass.getUserBalance()
+        if balance[0]:
+            self.lblCurrentBalance.setText(balance[1])
+        else:
+            self.setUserCurrentBalance('10000')
 
     def setUserCurrentBalance(self, balance: str):
         self.lblCurrentBalance.setText(f'{balance}')
@@ -183,6 +195,7 @@ class DlgMain(QMainWindow):
             if filter.lower() == "live":
                 self.browse.setup(search)
                 suggestions = self.browse.getSuggestions()
+                self.lstWidSuggestions.clear()
                 self.lstWidSuggestions.addItems(suggestions[0])
                 self.openSuggestionsBox()
 
@@ -193,8 +206,10 @@ class DlgMain(QMainWindow):
         indianStockWorker.signals.file_path.connect(self.drawLiveGraphAndLabel)
 
     def createMainFrameGraph(self):
-        self.fig = Figure((5.0, 4.0), dpi=100)
+        self.fig = Figure((0.5, 0.5))
         self.canvas = FigureCanvas(self.fig)
+
+        self.fig.tight_layout()
 
         self.canvas.setParent(self.widCharts)
         self.canvas.setFocusPolicy(Qt.StrongFocus)
@@ -207,31 +222,21 @@ class DlgMain(QMainWindow):
         vbox.addWidget(self.mpl_toolbar)
         self.widCharts.setLayout(vbox)
 
-    def getDataLiveGraph(self, item):
-        with open(item[0], 'r', encoding='utf-8') as file_read:
-            data = file_read.readlines()
-        time_stamp = []
-        price = []
-        data.pop(0)
-        for i in data:
-            time_stamp.append(i.replace('\n', '').split(",")[0])
-            price.append(float(i.replace('\n', '').split(",")[1]))
-        return [time_stamp, price]
-
-    def createLiveGraph(self, data):
+    def createLiveGraph(self, data, companyName: str):
         self.fig.clear()
-        self.axes = self.fig.add_subplot(111)
-        self.axes.set_xlabel("Dates")
+        with plt.style.context(('bmh')):
+            self.axes = self.fig.add_subplot(111)
         self.axes.set_ylabel("Price")
         self.axes.set_xticklabels(data[0], Rotation=70)
+        self.axes.set_title(f'{companyName}')
         line = self.axes.plot(data[0], data[1])
         cursor = mplcursors.cursor(line)
         self.canvas.draw()
 
     def drawLiveGraphAndLabel(self, item):
         self.currentCompanyName = item[1]
-        data = self.getDataLiveGraph(item)
-        self.createLiveGraph(data)
+        data = self.dataClass.getDataLiveGraph(item)
+        self.createLiveGraph(data, self.currentCompanyName)
         self.updateLabelWithPrice(data)
 
     def updateLabelWithPrice(self, data):
@@ -246,27 +251,8 @@ class DlgMain(QMainWindow):
             self.displayWarningBox('buyStocks', 'Not Enough Funds')
             return False
         else:
-            self.lblCurrentBalance.setText(str(float(self.lblCurrentBalance) - cost))
+            self.lblCurrentBalance.setText(str(float(self.lblCurrentBalance.text()) - cost))
             return True
-
-    def saveUserInformation(self, purpose: str, purchaseDetails=[]):
-        if purpose.lower() == "exit":
-            filePath = Path(f"../../Data/UserInformation/balance.csv")
-            if filePath.is_file():
-                with open(filePath, 'w', newline='', encoding='utf-8') as file_balance:
-                    writer = csv.writer(file_balance)
-                    writer.writerow([self.lblCurrentBalance.text()])
-        elif purpose.lower() == "bought":
-            filePath = Path(f"../../Data/UserInformation/purchase_history.csv")
-            if filePath.is_file():
-                with open(filePath, 'a', newline='', encoding='utf-8') as file_purchase_append:
-                    writer = csv.writer(file_purchase_append)
-                    writer.writerow(purchaseDetails)
-            else:
-                with open(filePath, 'w', newline='', encoding='utf-8') as file_purchase_write:
-                    writer = csv.writer(file_purchase_write)
-                    writer.writerow(["Company Name", "Quantity", "Cost"])
-                    writer.writerow(purchaseDetails)
 
     # def calculateLiveGraph(self, item):
     # liveSeries = QLineSeries()
@@ -342,7 +328,7 @@ class DlgMain(QMainWindow):
         self.btnBuy.setEnabled(True)
         self.closeSuggestionsBox()
         if self.rdBtnIndian.isChecked() and self.cmbFilter.currentText().lower() == "live":
-            self.browse.selectAndClickSuggestions(self.lstWidSuggestions.row(item))
+            self.browse.selectAndClickSuggestions(False, index=self.lstWidSuggestions.row(item))
             self.runLiveIndianStock(self.browse, self.lstWidSuggestions.row(item))
 
     def evt_btnBuy_clicked(self):
@@ -365,13 +351,140 @@ class DlgMain(QMainWindow):
             cost = float(int(self.lnEdtQuantity.text()) * float(self.lblCurrentPrice.text()))
             success = self.buyStocks(cost)
             if success:
-                self.saveUserInformation('bought', [self.currentCompanyName, self.lnEdtQuantity.text(), str(cost)])
+                x = self.currentCompanyName.split(' ')
+                x.pop(-1)
+                companyName = ' '.join(x)
+                self.dataClass.saveUserInformation('bought', self.lblCurrentBalance.text(), [companyName,
+                                                                                             self.lnEdtQuantity.text(),
+                                                                                             str(cost)])
+                self.displayPastPurchases()
+                self.closeConfirmBuyFrame()
 
     def closeEvent(self, event):
-        self.saveUserInformation('exit')
+        self.dataClass.saveUserInformation('exit', self.lblCurrentBalance.text())
         self.browse.quitDriver()
         threadClasses.e.set()
         event.accept()
+
+    def SecondTab(self):
+        self.tblWidHistory = self.findChild(QTableWidget, "tblWidHistory")
+        self.btnSell = self.findChild(QPushButton, "btnSell")
+        self.btnCancelSell = self.findChild(QPushButton, "btnCancelSell")
+        self.btnConfirmSell = self.findChild(QPushButton, "btnConfirmSell")
+        self.frmPullUpFrameSell = self.findChild(QFrame, "frmPullUpFrameSell")
+        self.frmTableHistory = self.findChild(QFrame, "frmTableHistory")
+        self.cmbWhichComp = self.findChild(QComboBox, "cmbWhichComp")
+        self.spnBxQuantity = self.findChild(QSpinBox, "spnBxQuantity")
+
+        self.btnSell.clicked.connect(self.evt_btnSell_clicked)
+        self.btnCancelSell.clicked.connect(self.evt_btnCancelSell_clicked)
+        self.btnConfirmSell.clicked.connect(self.evt_btnConfirmSell_clicked)
+
+    def displayPastPurchases(self):
+        items = self.dataClass.getPastPurchases()
+        if len(items[0]) != 0:
+            companyName = items[0]
+            quantity = items[1]
+            cost = items[2]
+
+            row = 0
+            column = 0
+            if len(companyName) != 0:
+                self.tblWidHistory.blockSignals(True)
+                self.tblWidHistory.setRowCount(0)
+                self.tblWidHistory.setRowCount(len(companyName))
+                self.tblWidHistory.setColumnCount(3)
+                for i in range(len(companyName)):
+                    self.tblWidHistory.setItem(row, column, QTableWidgetItem(companyName[i]))
+                    row += 1
+                row = 0
+                column += 1
+                for i in range(len(quantity)):
+                    self.tblWidHistory.setItem(row, column, QTableWidgetItem(quantity[i]))
+                    row += 1
+                row = 0
+                column += 1
+                for i in range(len(cost)):
+                    self.tblWidHistory.setItem(row, column, QTableWidgetItem(cost[i]))
+                    row += 1
+                row = 0
+
+            self.tblWidHistory.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        else:
+            self.tblWidHistory.setRowCount(0)
+            self.tblWidHistory.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+    def populateCmbWhichComp(self):
+        items = self.dataClass.getPastPurchases()
+        companyName = items[0]
+
+        if len(companyName) != 0:
+            self.cmbWhichComp.addItems(companyName)
+
+    def populateSpnBxQuantity(self):
+        items = self.dataClass.getPastPurchases()
+        selectedCompanyName = self.cmbWhichComp.currentText()
+        index = items[0].index(selectedCompanyName)
+        self.spnBxQuantity.setMinimum(1)
+        self.spnBxQuantity.setMaximum(int(items[1][index]))
+
+    def openConfirmSellFrame(self):
+        currentHeightFrm = self.frmPullUpFrameSell.height()
+        animation = QPropertyAnimation(self.frmPullUpFrameSell, b"maximumHeight")
+        animation.setDuration(500)
+        animation.setStartValue(currentHeightFrm)
+        animation.setEndValue(500)
+        animation.setEasingCurve(QEasingCurve.InQuart)
+
+        group = QParallelAnimationGroup(self.frmPullUpFrameSell)
+        group.addAnimation(animation)
+        group.start()
+
+        self.fadeWidgetOut(self.frmTableHistory)
+
+        self.frmTableHistory.setEnabled(False)
+
+    def closeConfirmSellFrame(self):
+        currentHeightFrm = self.frmPullUpFrameSell.height()
+        animation = QPropertyAnimation(self.frmPullUpFrameSell, b"maximumHeight")
+        animation.setDuration(500)
+        animation.setStartValue(currentHeightFrm)
+        animation.setEndValue(0)
+        animation.setEasingCurve(QEasingCurve.InQuart)
+
+        group = QParallelAnimationGroup(self.frmPullUpFrameSell)
+        group.addAnimation(animation)
+        group.start()
+
+        self.fadeWidgetIn(self.frmTableHistory)
+
+        self.frmTableHistory.setEnabled(True)
+
+    def sellStocks(self):
+        companyName = self.cmbWhichComp.currentText()
+        quantity = self.spnBxQuantity.cleanText()
+        self.browse.selectAndClickSuggestions(True, companyNameWithCode=companyName)
+        currentPrice = self.browse.getUpdatedPrice()
+        updatedPrice = float(self.lblCurrentBalance.text()) + (currentPrice * float(quantity))
+
+        self.lblCurrentBalance.setText(str(updatedPrice))
+        self.dataClass.saveUserInformation("sold", purchaseDetails=[companyName, quantity, currentPrice * float(quantity)])
+        self.displayWarningBox("sellStocks", "Operation Completed Successfully!")
+        self.displayPastPurchases()
+        self.closeConfirmSellFrame()
+
+    def evt_btnSell_clicked(self):
+        print("sell clicked")
+        self.openConfirmSellFrame()
+        self.populateCmbWhichComp()
+        self.populateSpnBxQuantity()
+
+    def evt_btnCancelSell_clicked(self):
+        self.closeConfirmSellFrame()
+
+    def evt_btnConfirmSell_clicked(self):
+        self.sellStocks()
+
 
 
 def my_exception_hook(exctype, value, traceback):
