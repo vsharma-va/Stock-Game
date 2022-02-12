@@ -61,13 +61,13 @@ class GetLiveStockPriceIndian(QtCore.QRunnable):
                 if filePath.is_file():
                     with open(filePath, 'a', encoding='utf-8', newline='') as file_append:
                         writer = csv.writer(file_append)
-                        writer.writerow([f"{now.strftime('%H:%M:%S')}", f'{price}'])
+                        writer.writerow([f"{now.strftime('%H:%M')}", f'{price}'])
                     file_append.close()
                 else:
                     with open(filePath, 'w', encoding='utf-8', newline='') as file_write:
                         writer = csv.writer(file_write)
                         writer.writerow(['timestamp', 'price'])
-                        writer.writerow([f"{now.strftime('%H:%M:%S')}", f'{price}'])
+                        writer.writerow([f"{now.strftime('%H:%M')}", f'{price}'])
                     file_write.close()
                 self.signals.file_path.emit([str(filePath), fileName])
                 e.wait(timeout=120)
