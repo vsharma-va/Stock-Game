@@ -227,9 +227,10 @@ class DlgMain(QMainWindow):
         with plt.style.context(('bmh')):
             self.axes = self.fig.add_subplot(111)
         self.axes.set_ylabel("Price")
-        self.axes.set_xticklabels(data[0], Rotation=70)
+        self.axes.set_xticklabels(data[0], rotation=70)
         self.axes.set_title(f'{companyName}')
         line = self.axes.plot(data[0], data[1])
+        plt.xticks(rotation=70)
         cursor = mplcursors.cursor(line)
         self.canvas.draw()
 
@@ -415,6 +416,7 @@ class DlgMain(QMainWindow):
             self.tblWidHistory.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
     def populateCmbWhichComp(self):
+        self.cmbWhichComp.clear()
         items = self.dataClass.getPastPurchases()
         companyName = items[0]
 
@@ -422,6 +424,7 @@ class DlgMain(QMainWindow):
             self.cmbWhichComp.addItems(companyName)
 
     def populateSpnBxQuantity(self):
+        self.spnBxQuantity.clear()
         items = self.dataClass.getPastPurchases()
         selectedCompanyName = self.cmbWhichComp.currentText()
         index = items[0].index(selectedCompanyName)

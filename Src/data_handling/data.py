@@ -21,8 +21,15 @@ class Data:
                     quantity += int(purchaseDetails[1])
                     amount = float(data[2][idx])
                     amount += float(purchaseDetails[2])
-                    data[1][idx] = quantity
-                    data[2][idx] = amount
+                    if len(data[1]) >= idx:
+                        data[1][idx] = quantity
+                    elif len(data[1]) < idx:
+                        data[1].insert(idx, quantity)
+
+                    if len(data[2]) >= idx:
+                        data[2][idx] = amount
+                    elif len(data[2]) < idx:
+                        data[2].insert(idx, amount)
                     print(idx)
                     print(data)
                     transform = True
@@ -35,11 +42,8 @@ class Data:
                 with open(filePath, 'w', newline='', encoding='utf-8') as file_purchase_append:
                     writer = csv.writer(file_purchase_append)
                     writer.writerow(["Company Name", "Quantity", "Cost"])
-                    if transform:
-                        for i in range(len(data[0])):
-                            writer.writerow([data[0][i], data[1][i], data[2][i]])
-                    else:
-                        writer.writerow(purchaseDetails)
+                    for i in range(len(data[0])):
+                        writer.writerow([data[0][i], data[1][i], data[2][i]])
             else:
                 with open(filePath, 'w', newline='', encoding='utf-8') as file_purchase_write:
                     writer = csv.writer(file_purchase_write)
