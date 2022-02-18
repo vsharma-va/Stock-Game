@@ -1,22 +1,17 @@
-import csv
 import sys
-from PyQt5.QtCore import QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QThread, QThreadPool, QTimer
+from PyQt5.QtCore import QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QThreadPool
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
 import Src.data_handling.scraper as scraper
 import Src.threads.threadClasses as threadClasses
 import Src.data_handling.data as data
-from matplotlib.backends import qt_compat
-
-use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
+import mplcursors
 from matplotlib.figure import Figure
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar)
-import mplcursors
-from pathlib import Path
 
 
 def printProgressTemp(price: float):
@@ -74,6 +69,7 @@ class DlgMain(QMainWindow):
         self.lstWidSuggestions.itemClicked.connect(self.evt_lstWidSuggestions_itemClicked)
         self.lnEdtQuantity.textEdited.connect(self.evt_lnEdtQuantity_editingFinished)
         self.lnEdtQuantity.editingFinished.connect(self.evt_lnEdtQuantity_editingFinished)
+        self.cmbWhichComp.currentIndexChanged.connect(self.evt_cmbWhichComp_indexChanged)
 
         self.fadeWidgetOut(self.btnBuy)
         self.btnBuy.setEnabled(False)
@@ -245,7 +241,7 @@ class DlgMain(QMainWindow):
 
     def displayWarningBox(self, functionName: str, displayText: str):
         QMessageBox.warning(self, f'Error {functionName}', displayText,
-                                  QMessageBox.Ok)
+                            QMessageBox.Ok)
 
     def buyStocks(self, cost: float) -> bool:
         if cost > float(self.lblCurrentBalance.text()):
@@ -254,68 +250,6 @@ class DlgMain(QMainWindow):
         else:
             self.lblCurrentBalance.setText(str(float(self.lblCurrentBalance.text()) - cost))
             return True
-
-    # def calculateLiveGraph(self, item):
-    # liveSeries = QLineSeries()
-    # pen = liveSeries.pen()
-    # pen.setWidth(3)
-    # liveSeries.setPen(pen)
-    # with open(item[0], 'r', encoding='utf-8') as file_read:
-    #     data = file_read.readlines()
-    # time_stamp = []
-    # price = []
-    # data.pop(0)
-    # for i in data:
-    #     time_stamp.append(i.replace('\n', '').split(",")[0])
-    #     price.append(float(i.replace('\n', '').split(",")[1]))
-    #
-    # counter = 0
-    # for z in price:
-    #     liveSeries.append(counter, float(z))
-    #     counter += 1
-    #
-    # max_price = sorted(price, key=float)[-1]
-    # min_price = sorted(price, key=float)[0]
-    # print(max_price)
-    #
-    # liveChart = QChart()
-    # liveChart.addSeries(liveSeries)
-    # liveChart.setAnimationOptions(QChart.SeriesAnimations)
-    # liveChart.setTitle(item[1])
-    #
-    # axis_x = QBarCategoryAxis()
-    # axis_x.append(time_stamp)
-    # axis_x.setLabelsAngle(70)
-    #
-    # liveChart.addAxis(axis_x, Qt.AlignBottom)
-    # liveSeries.attachAxis(axis_x)
-    #
-    # self.axis_y = QCategoryAxis(labelsPosition=QCategoryAxis.AxisLabelsPositionOnValue, startValue=0.0)
-    # liveChart.setAxisY(self.axis_y)
-    #
-    # liveSeries.attachAxis(self.axis_y)
-    #
-    # for s in self.axis_y.categoriesLabels():
-    #     self.axis_y.remove(s)
-    # for i in range(int(min_price), int(max_price) + 1, 5):
-    #     self.axis_y.append(str(i), i)
-    # self.axis_y.setRange(min_price, max_price)
-    #
-    # liveChart.legend().setVisible(True)
-    # liveChart.legend().setAlignment(Qt.AlignBottom)
-    #
-    # chart_view = custom_chart_view.ChartView(liveChart)
-    # chart_view.setRenderHint(QPainter.Antialiasing)
-    #
-    # chart_view.setRubberBand(QChartView.HorizontalRubberBand)
-    #
-    # for i in reversed(range(self.vertical.count())):
-    #     self.vertical.itemAt(i).widget().setParent(None)
-    #
-    # self.vertical.addWidget(chart_view)
-    # self.widCharts.setLayout(self.vertical)
-    #
-    # liveSeries.hovered.connect(chart_view.showToolTipLiveGraph)
 
     def evt_btnSearch_clicked(self):
         if self.lnEdtSearch.text() != '':
@@ -428,6 +362,7 @@ class DlgMain(QMainWindow):
         items = self.dataClass.getPastPurchases()
         selectedCompanyName = self.cmbWhichComp.currentText()
         index = items[0].index(selectedCompanyName)
+        print(f'index: {index}')
         self.spnBxQuantity.setMinimum(1)
         self.spnBxQuantity.setMaximum(int(items[1][index]))
 
@@ -471,7 +406,8 @@ class DlgMain(QMainWindow):
         updatedPrice = float(self.lblCurrentBalance.text()) + (currentPrice * float(quantity))
 
         self.lblCurrentBalance.setText(str(updatedPrice))
-        self.dataClass.saveUserInformation("sold", purchaseDetails=[companyName, quantity, currentPrice * float(quantity)])
+        self.dataClass.saveUserInformation("sold",
+                                           purchaseDetails=[companyName, quantity, currentPrice * float(quantity)])
         self.displayWarningBox("sellStocks", "Operation Completed Successfully!")
         self.displayPastPurchases()
         self.closeConfirmSellFrame()
@@ -482,12 +418,14 @@ class DlgMain(QMainWindow):
         self.populateCmbWhichComp()
         self.populateSpnBxQuantity()
 
+    def evt_cmbWhichComp_indexChanged(self):
+        self.populateSpnBxQuantity()
+
     def evt_btnCancelSell_clicked(self):
         self.closeConfirmSellFrame()
 
     def evt_btnConfirmSell_clicked(self):
         self.sellStocks()
-
 
 
 def my_exception_hook(exctype, value, traceback):
