@@ -32,7 +32,7 @@ class Data:
                     df.to_csv(filePath, mode='w+', index=False)
             else:
                 df = pd.DataFrame([purchaseDetails], columns=["Company Name", "Quantity", "Cost"])
-                df.to_csv(filePath)
+                df.to_csv(filePath, index=False)
         elif purpose.lower() == "sold":
             filePath = Path(f"../../Data/UserInformation/purchase_history.csv")
             df = pd.read_csv(filePath)

@@ -401,13 +401,16 @@ class DlgMain(QMainWindow):
     def sellStocks(self):
         companyName = self.cmbWhichComp.currentText()
         quantity = self.spnBxQuantity.cleanText()
-        self.browse.selectAndClickSuggestions(True, companyNameWithCode=companyName)
-        currentPrice = self.browse.getUpdatedPrice()
-        updatedPrice = float(self.lblCurrentBalance.text()) + (currentPrice * float(quantity))
+
+        self.browse.selectAndClickSuggestions(True, newDriver=True, companyNameWithCode=companyName)
+        currentPriceForSelling = self.browse.getUpdatedPrice(anotherDriver=True)
+        self.browse.quitDriver(anotherDriver=True)
+
+        updatedPrice = float(self.lblCurrentBalance.text()) + (currentPriceForSelling * float(quantity))
 
         self.lblCurrentBalance.setText(str(updatedPrice))
         self.dataClass.saveUserInformation("sold",
-                                           purchaseDetails=[companyName, quantity, currentPrice * float(quantity)])
+                                           purchaseDetails=[companyName, quantity, currentPriceForSelling * float(quantity)])
         self.displayWarningBox("sellStocks", "Operation Completed Successfully!")
         self.displayPastPurchases()
         self.closeConfirmSellFrame()

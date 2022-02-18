@@ -10,10 +10,8 @@ driver = webdriver.Firefox(executable_path="../data_handling/geckodriver.exe")
 
 
 class ContUpdatedPrice:
-    def __init__(self):
-        driver.get('https://www.bseindia.com/')
-
     def setup(self, company_name: str):
+        driver.get('https://www.bseindia.com/')
         self.suggestions_empty = False
         self.left_out_suggestions_empty = False
         self.suggestions = None
@@ -62,7 +60,7 @@ class ContUpdatedPrice:
     def getSuggestions(self):
         return [self.suggestions_company_list, self.suggestions_symbol_list]
 
-    def selectAndClickSuggestions(self, changeCriteria: bool, companyNameWithCode: str = '', index: int = 0):
+    def selectAndClickSuggestions(self, changeCriteria: bool, companyNameWithCode: str = '', index: int = 0, newDriver: bool=False):
         if not changeCriteria:
             to_search = self.suggestions_company_list[index]
             link = "https://www.bseindia.com/stock-share-price/{0}/{1}/{2}"
@@ -71,7 +69,7 @@ class ContUpdatedPrice:
             required_link = link.format(f"{to_search.replace(' ', '-').lower()}", f"{clean[0].lower()}", f"{clean[2]}")
             driver.get(required_link)
 
-        else:
+        elif changeCriteria and not newDriver:
             to_search = companyNameWithCode
             split = companyNameWithCode.split(' ')
             companyName = split[0:-3]
@@ -81,16 +79,47 @@ class ContUpdatedPrice:
             required_link = link.format(f"{companyName}", f"{alphaCode}", f"{digitCode}")
             driver.get(required_link)
 
-    def getUpdatedPrice(self):
-        try:
-            element = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//strong[@id='idcrval']"))
-            )
-        except selenium.common.exceptions.TimeoutException:
-            print("timeout")
+        if newDriver:
+            driver.execute_script("window.open('');")
+            driver.switch_to.window(driver.window_handles[1])
+            split = companyNameWithCode.split(' ')
+            companyName = split[0:-3]
+            digitCode = split[-1]
+            alphaCode = split[-2]
+            link = "https://www.bseindia.com/stock-share-price/{0}/{1}/{2}"
+            required_link = link.format(f"{companyName}", f"{alphaCode}", f"{digitCode}")
+            driver.get(required_link)
 
-        price = driver.find_element_by_xpath("//strong[@id='idcrval']")
-        return float(price.text)
+    def getUpdatedPrice(self, anotherDriver: bool=False):
+        if not anotherDriver:
+            try:
+                element = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//strong[@id='idcrval']"))
+                )
+            except selenium.common.exceptions.TimeoutException:
+                print("timeout")
 
-    def quitDriver(self):
-        driver.quit()
+            price = driver.find_element_by_xpath("//strong[@id='idcrval']")
+            return float(price.text)
+
+        else:
+            try:
+                element = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//strong[@id='idcrval']"))
+                )
+            except selenium.common.exceptions.TimeoutException:
+                print("timeout")
+
+            price = driver.find_element_by_xpath("//strong[@id='idcrval']")
+            print(price.text)
+            return float(price.text)
+
+    def quitDriver(self, anotherDriver: bool=False):
+        if not anotherDriver:
+            driver.quit()
+        else:
+            driver.close()
+            driver.switch_to.window(driver.window_handles[0])
+
+    def getLenWindowHandles(self):
+        return len(driver.window_handles)
