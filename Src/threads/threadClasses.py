@@ -1,4 +1,3 @@
-import time
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSlot
 import Src.data_handling.scraper as scraper
