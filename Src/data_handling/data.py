@@ -1,5 +1,8 @@
+import os
 from pathlib import Path
 import csv
+import pandas
+import pandas as pd
 
 
 class Data:
@@ -12,62 +15,35 @@ class Data:
                     writer.writerow([currentBalance])
         elif purpose.lower() == "bought":
             filePath = Path(f"../../Data/UserInformation/purchase_history.csv")
-            if filePath.is_file():
-                data = self.getPastPurchases()
-                if purchaseDetails[0] in data[0]:
-                    idx = data[0].index(purchaseDetails[0])
-                    data[0][idx] = purchaseDetails[0]
-                    quantity = int(data[1][idx])
-                    quantity += int(purchaseDetails[1])
-                    amount = float(data[2][idx])
-                    amount += float(purchaseDetails[2])
-                    if len(data[1]) >= idx:
-                        data[1][idx] = quantity
-                    elif len(data[1]) < idx:
-                        data[1].insert(idx, quantity)
+            if filePath.is_file() and os.path.getsize(filePath) > 0:
+                df = pandas.read_csv(filePath)
+                found = df[df["Company Name"].str.contains(f"{purchaseDetails[0]}")]
+                if len(found) > 0:
+                    df.loc[df["Company Name"] == purchaseDetails[0], 'Quantity'] = \
+                        int(df.loc[df["Company Name"] == purchaseDetails[0], 'Quantity']) + int(purchaseDetails[1])
+                    df.loc[df["Company Name"] == purchaseDetails[0], 'Cost'] = \
+                        float(df.loc[df["Company Name"] == purchaseDetails[0], 'Cost']) + float(purchaseDetails[2])
 
-                    if len(data[2]) >= idx:
-                        data[2][idx] = amount
-                    elif len(data[2]) < idx:
-                        data[2].insert(idx, amount)
-                    print(idx)
-                    print(data)
-                    transform = True
-                else:
-                    data[0].append(purchaseDetails[0])
-                    data[1].append(purchaseDetails[1])
-                    data[2].append(purchaseDetails[2])
-                    transform = False
+                    df.to_csv(filePath, index=False)
 
-                with open(filePath, 'w', newline='', encoding='utf-8') as file_purchase_append:
-                    writer = csv.writer(file_purchase_append)
-                    writer.writerow(["Company Name", "Quantity", "Cost"])
-                    for i in range(len(data[0])):
-                        writer.writerow([data[0][i], data[1][i], data[2][i]])
+                elif len(found) == 0:
+                    df.loc[len(df)] = purchaseDetails
+                    print(df)
+                    df.to_csv(filePath, mode='w+', index=False)
             else:
-                with open(filePath, 'w', newline='', encoding='utf-8') as file_purchase_write:
-                    writer = csv.writer(file_purchase_write)
-                    writer.writerow(["Company Name", "Quantity", "Cost"])
-                    writer.writerow(purchaseDetails)
+                df = pd.DataFrame([purchaseDetails], columns=["Company Name", "Quantity", "Cost"])
+                df.to_csv(filePath)
         elif purpose.lower() == "sold":
             filePath = Path(f"../../Data/UserInformation/purchase_history.csv")
-            data = self.getPastPurchases()
-            idx = data[0].index(purchaseDetails[0])
-            newQuantity = int(data[1][idx]) - int(purchaseDetails[1])
-            print(purchaseDetails[1])
-            newAmount = float(data[2][idx]) - float(purchaseDetails[2])
-            if newQuantity == 0:
-                data[0].pop(idx)
-                data[1].pop(idx)
-                data[2].pop(idx)
-            else:
-                data[1][idx] = newQuantity
-                data[2][idx] = newAmount
-            with open(filePath, 'w', encoding='utf-8', newline='') as file_sold_write:
-                writer = csv.writer(file_sold_write)
-                for i in range(len(data[0])):
-                    writer.writerow(["Company Name", "Quantity", "Cost"])
-                    writer.writerow([data[0][i], data[1][i], data[2][i]])
+            df = pd.read_csv(filePath)
+            df.loc[df["Company Name"] == purchaseDetails[0], 'Quantity'] = \
+                int(df.loc[df["Company Name"] == purchaseDetails[0], 'Quantity']) - int(purchaseDetails[1])
+            df.loc[df["Company Name"] == purchaseDetails[0], 'Cost'] = \
+                float(df.loc[df["Company Name"] == purchaseDetails[0], 'Cost']) - float(purchaseDetails[2])
+
+            df.drop(df[df.Quantity <= 0].index, inplace=True)
+
+            df.to_csv(filePath, index=False)
 
     def getDataLiveGraph(self, item) -> list:
         with open(item[0], 'r', encoding='utf-8') as file_read:
