@@ -4,12 +4,9 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import os
 
-PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
-DRIVER_BIN = os.path.join(PROJECT_ROOT, "chromedriver")
 
-driver = webdriver.Firefox(executable_path=DRIVER_BIN)
+driver = webdriver.Firefox(executable_path="../data_handling/geckodriver.exe")
 
 
 class ContUpdatedPrice:
@@ -67,13 +64,7 @@ class ContUpdatedPrice:
 
     def selectAndClickSuggestions(self, changeCriteria: bool, companyNameWithCode: str = '', index: int = 0):
         if not changeCriteria:
-            # print(self.suggestions_company_list)
             to_search = self.suggestions_company_list[index]
-            # search_box = driver.find_element_by_xpath("//input[@id='getquotesearch']")
-            # search_box.clear()
-            # search_box.send_keys(f"{to_search}")
-            # click = driver.find_element_by_xpath(f"//*[contains(text(), '{to_search}')]")
-            # click.click()
             link = "https://www.bseindia.com/stock-share-price/{0}/{1}/{2}"
             unclean = self.suggestions_symbol_list[index].split(" ")
             clean = [v for v in unclean if v != ""]
